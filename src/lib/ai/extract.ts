@@ -10,11 +10,22 @@ function getAnthropicClient() {
 
 type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
+function detectMimeType(base64: string, declaredType: string): ImageMediaType {
+  // Detect actual format from magic bytes
+  if (base64.startsWith("iVBOR")) return "image/png";
+  if (base64.startsWith("/9j/")) return "image/jpeg";
+  if (base64.startsWith("R0lG")) return "image/gif";
+  if (base64.startsWith("UklGR")) return "image/webp";
+  // Fall back to declared type
+  return declaredType as ImageMediaType;
+}
+
 export async function extractReceipt(
   imageBase64: string,
   mimeType: string
 ): Promise<ExtractedReceipt> {
   const categoryList = CATEGORIES.join(", ");
+  const actualMimeType = detectMimeType(imageBase64, mimeType);
 
   const response = await getAnthropicClient().messages.create({
     model: "claude-sonnet-4-20250514",
@@ -27,7 +38,7 @@ export async function extractReceipt(
             type: "image",
             source: {
               type: "base64",
-              media_type: mimeType as ImageMediaType,
+              media_type: actualMimeType,
               data: imageBase64,
             },
           },
