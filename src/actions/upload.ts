@@ -43,7 +43,9 @@ export async function uploadReceipt(formData: FormData) {
   const limit =
     PLAN_LIMITS[plan === "canceled" ? "free" : plan]?.scansPerMonth ?? 25;
 
-  const { data: currentCount } = await supabase.rpc("get_scan_count", {
+  const adminClient = createAdminClient();
+
+  const { data: currentCount } = await adminClient.rpc("get_scan_count", {
     p_user_id: user.id,
   });
 
@@ -53,22 +55,33 @@ export async function uploadReceipt(formData: FormData) {
     };
   }
 
-  // Use admin client for storage (bypasses RLS, avoids cookie auth issues)
-  const adminClient = createAdminClient();
+  // Read file into buffer for both storage and AI
+  const arrayBuf = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuf);
+  const base64 = buffer.toString("base64");
 
   // Upload to Supabase Storage
   const fileExt = file.name.split(".").pop() ?? "jpg";
   const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
 
-  const arrayBuf = await file.arrayBuffer();
-  const { error: uploadError } = await adminClient.storage
-    .from("receipts")
-    .upload(fileName, arrayBuf, {
-      contentType: file.type,
-    });
+  let imageUrl: string | null = null;
+  try {
+    const { error: uploadError } = await adminClient.storage
+      .from("receipts")
+      .upload(fileName, buffer, {
+        contentType: file.type,
+        upsert: false,
+      });
 
-  if (uploadError) {
-    return { error: `Upload failed: ${uploadError.message}` };
+    if (uploadError) {
+      console.error("Storage upload error:", JSON.stringify(uploadError));
+      // Continue without storage — we still have the base64 for extraction
+    } else {
+      imageUrl = fileName;
+    }
+  } catch (storageErr) {
+    console.error("Storage exception:", storageErr);
+    // Continue without storage
   }
 
   // Create pending transaction
@@ -76,7 +89,7 @@ export async function uploadReceipt(formData: FormData) {
     .from("transactions")
     .insert({
       user_id: user.id,
-      image_url: fileName,
+      image_url: imageUrl,
       extraction_status: "pending",
     })
     .select()
@@ -85,23 +98,6 @@ export async function uploadReceipt(formData: FormData) {
   if (insertError || !transaction) {
     return { error: "Failed to create transaction record" };
   }
-
-  // Download file for AI extraction
-  const { data: fileData } = await adminClient.storage
-    .from("receipts")
-    .download(fileName);
-
-  if (!fileData) {
-    await supabase
-      .from("transactions")
-      .update({ extraction_status: "failed" })
-      .eq("id", transaction.id);
-    return { error: "Failed to read uploaded file" };
-  }
-
-  // Convert to base64 for Claude Vision
-  const arrayBuffer = await fileData.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString("base64");
 
   try {
     // Extract receipt data using Claude Vision
