@@ -53,22 +53,23 @@ export async function uploadReceipt(formData: FormData) {
     };
   }
 
+  // Use admin client for storage (bypasses RLS, avoids cookie auth issues)
+  const adminClient = createAdminClient();
+
   // Upload to Supabase Storage
   const fileExt = file.name.split(".").pop() ?? "jpg";
   const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
 
-  const { error: uploadError } = await supabase.storage
+  const arrayBuf = await file.arrayBuffer();
+  const { error: uploadError } = await adminClient.storage
     .from("receipts")
-    .upload(fileName, file);
+    .upload(fileName, arrayBuf, {
+      contentType: file.type,
+    });
 
   if (uploadError) {
     return { error: `Upload failed: ${uploadError.message}` };
   }
-
-  // Get public URL for the image
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("receipts").getPublicUrl(fileName);
 
   // Create pending transaction
   const { data: transaction, error: insertError } = await supabase
@@ -86,7 +87,7 @@ export async function uploadReceipt(formData: FormData) {
   }
 
   // Download file for AI extraction
-  const { data: fileData } = await supabase.storage
+  const { data: fileData } = await adminClient.storage
     .from("receipts")
     .download(fileName);
 
@@ -147,8 +148,7 @@ export async function uploadReceipt(formData: FormData) {
       return { error: "Failed to save extraction results" };
     }
 
-    // Increment scan count using admin client (bypasses RLS)
-    const adminClient = createAdminClient();
+    // Increment scan count
     await adminClient.rpc("increment_scan_count", { p_user_id: user.id });
 
     return { data: updated };
