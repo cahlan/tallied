@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe/client";
 
 export async function POST(request: Request) {
@@ -28,8 +29,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const adminClient = createAdminClient();
+
     // Check if user already has a Stripe customer ID
-    const { data: profile } = await supabase
+    const { data: profile } = await adminClient
       .from("profiles")
       .select("stripe_customer_id")
       .eq("id", user.id)
@@ -45,7 +48,7 @@ export async function POST(request: Request) {
       });
       customerId = customer.id;
 
-      await supabase
+      await adminClient
         .from("profiles")
         .update({ stripe_customer_id: customerId })
         .eq("id", user.id);
