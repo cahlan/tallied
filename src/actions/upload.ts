@@ -84,8 +84,8 @@ export async function uploadReceipt(formData: FormData) {
     // Continue without storage
   }
 
-  // Create pending transaction
-  const { data: transaction, error: insertError } = await supabase
+  // Create pending transaction (use admin client — user already verified above)
+  const { data: transaction, error: insertError } = await adminClient
     .from("transactions")
     .insert({
       user_id: user.id,
@@ -96,6 +96,7 @@ export async function uploadReceipt(formData: FormData) {
     .single();
 
   if (insertError || !transaction) {
+    console.error("Insert error:", JSON.stringify(insertError));
     return { error: "Failed to create transaction record" };
   }
 
@@ -106,7 +107,7 @@ export async function uploadReceipt(formData: FormData) {
     // Apply category rules
     let finalCategory = extracted.category;
     if (extracted.vendor_name) {
-      const { data: rules } = await supabase
+      const { data: rules } = await adminClient
         .from("category_rules")
         .select("*")
         .eq("user_id", user.id);
@@ -122,7 +123,7 @@ export async function uploadReceipt(formData: FormData) {
     }
 
     // Update transaction with extracted data
-    const { data: updated, error: updateError } = await supabase
+    const { data: updated, error: updateError } = await adminClient
       .from("transactions")
       .update({
         vendor_name: extracted.vendor_name,
@@ -150,7 +151,7 @@ export async function uploadReceipt(formData: FormData) {
     return { data: updated };
   } catch (err) {
     // Mark as failed on extraction error
-    await supabase
+    await adminClient
       .from("transactions")
       .update({
         extraction_status: "failed",
