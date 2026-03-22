@@ -13,10 +13,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { priceId } = await request.json();
+    const { plan } = await request.json();
+
+    const priceIds: Record<string, string | undefined> = {
+      pro: process.env.STRIPE_PRO_PRICE_ID,
+      self_hosted: process.env.STRIPE_SELF_HOSTED_PRICE_ID,
+    };
+
+    const priceId = priceIds[plan];
     if (!priceId) {
       return NextResponse.json(
-        { error: "Price ID is required" },
+        { error: "Invalid plan" },
         { status: 400 }
       );
     }

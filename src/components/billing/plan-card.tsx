@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -32,13 +31,13 @@ export function PlanCard({
   disabled,
 }: PlanCardProps) {
   return (
-    <Card className={isCurrent ? "border-primary" : ""}>
+    <Card className={`flex flex-col ${isCurrent ? "border-primary" : ""}`}>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>{name}</CardTitle>
           {isCurrent && <Badge>Current plan</Badge>}
         </div>
-        <CardDescription>
+        <div>
           {price === 0 ? (
             <span className="text-2xl font-bold text-foreground">Free</span>
           ) : (
@@ -49,13 +48,13 @@ export function PlanCard({
               <span className="text-muted-foreground">/month</span>
             </>
           )}
-        </CardDescription>
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         <ul className="space-y-2">
           {features.map((feature) => (
             <li key={feature} className="flex items-center gap-2 text-sm">
-              <Check className="h-4 w-4 text-primary" />
+              <Check className="h-4 w-4 text-primary flex-shrink-0" />
               {feature}
             </li>
           ))}

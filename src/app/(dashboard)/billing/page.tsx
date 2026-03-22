@@ -50,13 +50,13 @@ export default function BillingPage() {
     load();
   }, []);
 
-  async function handleUpgrade(priceId: string, planKey: string) {
+  async function handleUpgrade(planKey: string) {
     setLoading(planKey);
     try {
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceId }),
+        body: JSON.stringify({ plan: planKey }),
       });
       const data = await res.json();
       if (data.url) {
@@ -118,20 +118,16 @@ export default function BillingPage() {
           price={PLANS.pro.price}
           features={PLANS.pro.features}
           isCurrent={currentPlan === "pro"}
-          onSelect={() => handleUpgrade(PLANS.pro.priceId!, "pro")}
+          onSelect={() => handleUpgrade("pro")}
           loading={loading === "pro"}
-          disabled={!PLANS.pro.priceId}
         />
         <PlanCard
           name={PLANS.self_hosted.name}
           price={PLANS.self_hosted.price}
           features={PLANS.self_hosted.features}
           isCurrent={currentPlan === "self_hosted"}
-          onSelect={() =>
-            handleUpgrade(PLANS.self_hosted.priceId!, "self_hosted")
-          }
+          onSelect={() => handleUpgrade("self_hosted")}
           loading={loading === "self_hosted"}
-          disabled={!PLANS.self_hosted.priceId}
         />
       </div>
     </div>
