@@ -21,11 +21,30 @@ function detectMimeType(base64: string, declaredType: string): ImageMediaType {
 }
 
 export async function extractReceipt(
-  imageBase64: string,
+  base64: string,
   mimeType: string
 ): Promise<ExtractedReceipt> {
   const categoryList = CATEGORIES.join(", ");
-  const actualMimeType = detectMimeType(imageBase64, mimeType);
+  const isPdf = mimeType === "application/pdf";
+
+  const fileBlock: Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam =
+    isPdf
+      ? {
+          type: "document",
+          source: {
+            type: "base64",
+            media_type: "application/pdf",
+            data: base64,
+          },
+        }
+      : {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: detectMimeType(base64, mimeType),
+            data: base64,
+          },
+        };
 
   const response = await getAnthropicClient().messages.create({
     model: "claude-sonnet-4-20250514",
@@ -34,14 +53,7 @@ export async function extractReceipt(
       {
         role: "user",
         content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: actualMimeType,
-              data: imageBase64,
-            },
-          },
+          fileBlock,
           {
             type: "text",
             text: `You are a receipt data extraction assistant. Extract structured data from this receipt or invoice image.
